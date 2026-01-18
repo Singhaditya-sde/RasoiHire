@@ -1,0 +1,29 @@
+stages:
+  - build
+  - deploy
+
+frontend_build:
+  stage: build
+  image: node:18
+  script:
+    - cd Frontend
+    - npm ci
+    - npm run build
+  artifacts:
+    paths:
+      - Frontend/dist
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"'
+
+frontend_deploy:
+  stage: deploy
+  image: amazon/aws-cli
+  dependencies:
+    - frontend_build
+  script:
+    - aws s3 sync Frontend/dist s3://$S3_BUCKET --delete
+    - aws cloudfront create-invalidation \
+        --distribution-id $CLOUDFRONT_DISTRIBUTION_ID \
+        --paths "/*"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
